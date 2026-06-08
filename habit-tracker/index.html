@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cait & Eric | Habit Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #fdf6ec;
+      --card: #ffffff;
+      --border: #e8ddd0;
+      --text: #2d2424;
+      --soft: #7a6b5d;
+      --orange: #e07b39;
+      --purple: #7b5ea7;
+      --cait: #d4599a;
+      --eric: #3d8fa6;
+      --green: #4caf78;
+      --red: #e05c5c;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* ── Header ── */
+    .app-header {
+      background: linear-gradient(135deg, #e07b39 0%, #d4599a 55%, #7b5ea7 100%);
+      color: white;
+      padding: 22px 20px 26px;
+      text-align: center;
+    }
+    .app-header h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: 0.3px; }
+    .app-header p  { font-size: 0.82rem; opacity: 0.88; margin-top: 4px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-80px);
+      background: #2d2424;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      z-index: 999;
+      transition: transform 0.3s ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── Bottom Nav ── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: white;
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 100;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.07);
+    }
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 10px 8px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--soft);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      transition: color 0.15s;
+    }
+    .nav-btn .icon { font-size: 1.45rem; }
+    .nav-btn.active[data-view="cait"]  { color: var(--cait); }
+    .nav-btn.active[data-view="eric"]  { color: var(--eric); }
+    .nav-btn.active[data-view="ideas"] { color: var(--purple); }
+
+    /* ── Views ── */
+    .view { display: none; padding: 16px; max-width: 500px; margin: 0 auto; }
+    .view.active { display: block; }
+
+    .view-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .view-title { font-size: 1.25rem; font-weight: 800; }
+    .view-title.cait  { color: var(--cait); }
+    .view-title.eric  { color: var(--eric); }
+    .view-title.ideas { color: var(--purple); }
+
+    .date-badge {
+      font-size: 0.76rem;
+      color: var(--soft);
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 4px 11px;
+      border-radius: 20px;
+    }
+
+    /* ── Stats strip ── */
+    .stats-strip {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      flex: 1;
+      background: var(--card);
+      border-radius: 12px;
+      padding: 12px 8px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .stat-num   { font-size: 1.45rem; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--soft); margin-top: 3px; }
+
+    /* ── Habit list ── */
+    .habit-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+
+    .habit-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: opacity 0.2s;
+    }
+    .habit-card.done { opacity: 0.65; }
+
+    .check-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 2.5px solid var(--border);
+      background: none;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .check-btn.checked { background: var(--green); border-color: var(--green); color: white; }
+
+    .habit-info { flex: 1; min-width: 0; }
+    .habit-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .habit-streak { font-size: 0.74rem; color: var(--soft); margin-top: 2px; }
+    .habit-streak .fire { color: var(--orange); }
+
+    .dot-trail { display: flex; gap: 3px; margin-top: 7px; }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+    .dot.filled { background: var(--green); }
+    .dot.is-today { outline: 2px solid var(--orange); outline-offset: 1px; }
+
+    .del-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #ccc;
+      font-size: 1rem;
+      padding: 4px;
+      flex-shrink: 0;
+      transition: color 0.15s;
+      line-height: 1;
+    }
+    .del-btn:hover { color: var(--red); }
+
+    /* ── Add habit form ── */
+    .add-form {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .add-form h3 {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--soft);
+      margin-bottom: 12px;
+    }
+    .add-row { display: flex; gap: 8px; }
+    .add-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      font-family: inherit;
+    }
+    .add-row input:focus { border-color: var(--orange); }
+    .add-row button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-cait  { background: var(--cait);   color: white; }
+    .btn-eric  { background: var(--eric);   color: white; }
+    .btn-ideas { background: var(--purple); color: white; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 28px 20px;
+      color: var(--soft);
+    }
+    .empty-state .emoji { font-size: 2.4rem; margin-bottom: 8px; }
+    .empty-state p { font-size: 0.88rem; line-height: 1.5; }
+
+    /* ── Couple banner ── */
+    .couple-banner {
+      background: linear-gradient(135deg, #e07b39, #d4599a);
+      color: white;
+      border-radius: 14px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow);
+    }
+    .couple-banner .banner-icon { font-size: 1.8rem; flex-shrink: 0; }
+    .couple-banner .banner-text { font-size: 0.88rem; line-height: 1.4; font-weight: 600; }
+
+    /* ── Idea Box ── */
+    .ideas-filter {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .filter-chip {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--card);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      color: var(--soft);
+      transition: all 0.15s;
+    }
+    .filter-chip.active { border-color: var(--purple); color: var(--purple); background: #f0eaf8; }
+
+    .idea-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 10px;
+      border-left: 4px solid var(--border);
+    }
+    .idea-card.from-cait { border-left-color: var(--cait); }
+    .idea-card.from-eric { border-left-color: var(--eric); }
+
+    .idea-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .from-badge {
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 9px;
+      border-radius: 20px;
+    }
+    .from-badge.cait { background: #fce9f3; color: var(--cait); }
+    .from-badge.eric { background: #e4f3f8; color: var(--eric); }
+    .to-text { font-size: 0.72rem; color: var(--soft); }
+    .idea-date { font-size: 0.7rem; color: var(--soft); margin-left: auto; }
+
+    .idea-text { font-size: 0.9rem; line-height: 1.55; margin-bottom: 10px; }
+
+    .idea-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .idea-btn {
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 5px 13px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      background: none;
+      cursor: pointer;
+      color: var(--soft);
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .idea-btn.green  { border-color: var(--green);  color: var(--green); }
+    .idea-btn.orange { border-color: var(--orange);  color: var(--orange); }
+    .idea-btn.red:hover { border-color: var(--red); color: var(--red); }
+
+    .status-pill {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    .status-pill.tried    { background: #e8f8ee; color: var(--green); }
+    .status-pill.adopted  { background: #fff3e0; color: var(--orange); }
+
+    /* ── Add idea form ── */
+    .add-idea-form {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      margin-top: 4px;
+    }
+    .add-idea-form h3 {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--soft);
+      margin-bottom: 12px;
+    }
+    .form-row { margin-bottom: 12px; }
+    .form-row label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--soft);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-row select,
+    .form-row textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      font-family: inherit;
+    }
+    .form-row textarea { resize: vertical; min-height: 72px; }
+    .form-row select:focus,
+    .form-row textarea:focus { border-color: var(--purple); }
+    .submit-btn {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--purple);
+      color: white;
+    }
+
+    @media (max-width: 360px) {
+      .stat-num { font-size: 1.2rem; }
+      .app-header h1 { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<header class="app-header">
+  <h1>Cait &amp; Eric's Habit Tracker</h1>
+  <p>Building better days, one habit at a time 🐾</p>
+</header>
+
+<!-- ════════ Cait's View ════════ -->
+<div id="view-cait" class="view active">
+  <div class="view-header">
+    <span class="view-title cait">Cait's Habits</span>
+    <span class="date-badge" id="date-cait"></span>
+  </div>
+  <div id="banner-cait"></div>
+  <div class="stats-strip">
+    <div class="stat-card">
+      <div class="stat-num" id="stat-cait-today">—</div>
+      <div class="stat-label">Done Today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-cait-total">0</div>
+      <div class="stat-label">Habits</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-cait-streak">0</div>
+      <div class="stat-label">Best Streak</div>
+    </div>
+  </div>
+  <div class="habit-list" id="habits-cait"></div>
+  <div class="add-form">
+    <h3>Add a Habit</h3>
+    <div class="add-row">
+      <input type="text" id="input-cait" placeholder="e.g. Drink water, Journal, Stretch…" />
+      <button class="btn-cait" id="add-btn-cait">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ Eric's View ════════ -->
+<div id="view-eric" class="view">
+  <div class="view-header">
+    <span class="view-title eric">Eric's Habits</span>
+    <span class="date-badge" id="date-eric"></span>
+  </div>
+  <div id="banner-eric"></div>
+  <div class="stats-strip">
+    <div class="stat-card">
+      <div class="stat-num" id="stat-eric-today">—</div>
+      <div class="stat-label">Done Today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-eric-total">0</div>
+      <div class="stat-label">Habits</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-eric-streak">0</div>
+      <div class="stat-label">Best Streak</div>
+    </div>
+  </div>
+  <div class="habit-list" id="habits-eric"></div>
+  <div class="add-form">
+    <h3>Add a Habit</h3>
+    <div class="add-row">
+      <input type="text" id="input-eric" placeholder="e.g. Read 10 min, Walk, Vitamins…" />
+      <button class="btn-eric" id="add-btn-eric">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ Idea Box View ════════ -->
+<div id="view-ideas" class="view">
+  <div class="view-header">
+    <span class="view-title ideas">Idea Box 💡</span>
+    <span class="date-badge" id="date-ideas"></span>
+  </div>
+  <div class="ideas-filter">
+    <button class="filter-chip active" data-filter="all">All Ideas</button>
+    <button class="filter-chip" data-filter="to-cait">For Cait 🌸</button>
+    <button class="filter-chip" data-filter="to-eric">For Eric 🌊</button>
+  </div>
+  <div id="ideas-list"></div>
+  <div class="add-idea-form">
+    <h3>Drop a New Idea</h3>
+    <div style="display:flex; gap:10px;">
+      <div class="form-row" style="flex:1">
+        <label>From</label>
+        <select id="idea-from">
+          <option value="cait">Cait</option>
+          <option value="eric">Eric</option>
+        </select>
+      </div>
+      <div class="form-row" style="flex:1">
+        <label>For</label>
+        <select id="idea-to">
+          <option value="eric">Eric</option>
+          <option value="cait">Cait</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Habit Idea</label>
+      <textarea id="idea-text" placeholder="e.g. What if we tried a 5-minute morning stretch together?"></textarea>
+    </div>
+    <button class="submit-btn" id="send-idea-btn">Send Idea</button>
+  </div>
+</div>
+
+<!-- ════════ Bottom Nav ════════ -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-view="cait">
+    <span class="icon">🌸</span>
+    <span>Cait</span>
+  </button>
+  <button class="nav-btn" data-view="eric">
+    <span class="icon">🌊</span>
+    <span>Eric</span>
+  </button>
+  <button class="nav-btn" data-view="ideas">
+    <span class="icon">💡</span>
+    <span>Idea Box</span>
+  </button>
+</nav>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let habits = { cait: [], eric: [] };
+let completions = {};   // { 'YYYY-MM-DD': { cait: [id], eric: [id] } }
+let ideas = [];         // [{ id, from, to, text, date, status }]
+let ideaFilter = 'all';
+
+// ─── Persistence ─────────────────────────────────────────────────────────────
+function save() {
+  localStorage.setItem('ht_habits',      JSON.stringify(habits));
+  localStorage.setItem('ht_completions', JSON.stringify(completions));
+  localStorage.setItem('ht_ideas',       JSON.stringify(ideas));
+}
+
+function load() {
+  try {
+    habits      = JSON.parse(localStorage.getItem('ht_habits'))      || { cait: [], eric: [] };
+    completions = JSON.parse(localStorage.getItem('ht_completions')) || {};
+    ideas       = JSON.parse(localStorage.getItem('ht_ideas'))       || [];
+  } catch(_) {
+    habits = { cait: [], eric: [] }; completions = {}; ideas = [];
+  }
+}
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function pad(n) { return String(n).padStart(2,'0'); }
+
+function daysAgoStr(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function friendlyToday() {
+  const d = new Date();
+  const days   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+function shortDate(str) {
+  const [,m,d] = str.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[parseInt(m)-1]} ${parseInt(d)}`;
+}
+
+// ─── Streak ───────────────────────────────────────────────────────────────────
+function calcStreak(person, habitId) {
+  const today = todayStr();
+  const doneToday = (completions[today]?.[person] || []).includes(habitId);
+  let streak = 0;
+  let i = doneToday ? 0 : 1;
+  while (true) {
+    const d = daysAgoStr(i);
+    if (!(completions[d]?.[person] || []).includes(habitId)) break;
+    streak++;
+    i++;
+  }
+  return streak;
+}
+
+function bestStreak(person) {
+  if (!habits[person].length) return 0;
+  return Math.max(...habits[person].map(h => calcStreak(person, h.id)));
+}
+
+// ─── Toggle ───────────────────────────────────────────────────────────────────
+function toggleHabit(person, habitId) {
+  const today = todayStr();
+  if (!completions[today]) completions[today] = {};
+  if (!completions[today][person]) completions[today][person] = [];
+  const arr = completions[today][person];
+  const idx = arr.indexOf(habitId);
+  if (idx === -1) { arr.push(habitId); } else { arr.splice(idx, 1); }
+  save();
+  renderHabits(person);
+  updateStats(person);
+}
+
+// ─── Add / Delete habit ───────────────────────────────────────────────────────
+function addHabit(person) {
+  const input = document.getElementById(`input-${person}`);
+  const name  = input.value.trim();
+  if (!name) return;
+  habits[person].push({ id: Date.now().toString(), name });
+  input.value = '';
+  save();
+  renderHabits(person);
+  updateStats(person);
+}
+
+function deleteHabit(person, habitId) {
+  habits[person] = habits[person].filter(h => h.id !== habitId);
+  Object.values(completions).forEach(day => {
+    if (day[person]) day[person] = day[person].filter(id => id !== habitId);
+  });
+  save();
+  renderHabits(person);
+  updateStats(person);
+}
+
+// ─── Ideas ────────────────────────────────────────────────────────────────────
+function addIdea() {
+  const from = document.getElementById('idea-from').value;
+  const to   = document.getElementById('idea-to').value;
+  const text = document.getElementById('idea-text').value.trim();
+  if (!text) return;
+  ideas.unshift({ id: Date.now().toString(), from, to, text, date: todayStr(), status: 'new' });
+  document.getElementById('idea-text').value = '';
+  save();
+  renderIdeas();
+  toast(`Idea sent to ${to === 'cait' ? 'Cait' : 'Eric'}!`);
+}
+
+function updateIdeaStatus(id, status) {
+  const idea = ideas.find(i => i.id === id);
+  if (idea) { idea.status = status; save(); renderIdeas(); }
+}
+
+function adoptIdea(id) {
+  const idea = ideas.find(i => i.id === id);
+  if (!idea) return;
+  idea.status = 'adopted';
+  habits[idea.to].push({ id: Date.now().toString(), name: idea.text });
+  save();
+  renderIdeas();
+  renderHabits(idea.to);
+  updateStats(idea.to);
+  toast(`Added to ${idea.to === 'cait' ? "Cait's" : "Eric's"} habits!`);
+}
+
+function deleteIdea(id) {
+  ideas = ideas.filter(i => i.id !== id);
+  save();
+  renderIdeas();
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+// ─── Render helpers ───────────────────────────────────────────────────────────
+function esc(str) {
+  return str
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Render Habits ────────────────────────────────────────────────────────────
+function renderHabits(person) {
+  const container = document.getElementById(`habits-${person}`);
+  const today     = todayStr();
+  const doneToday = completions[today]?.[person] || [];
+
+  if (!habits[person].length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="emoji">🌱</div>
+        <p>No habits yet. Add something below to get started!</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = habits[person].map(h => {
+    const done   = doneToday.includes(h.id);
+    const streak = calcStreak(person, h.id);
+
+    const dots = Array.from({ length: 7 }, (_, i) => {
+      const daysAgo = 6 - i;
+      const d       = daysAgoStr(daysAgo);
+      const filled  = (completions[d]?.[person] || []).includes(h.id);
+      return `<div class="dot${filled ? ' filled' : ''}${daysAgo === 0 ? ' is-today' : ''}"></div>`;
+    }).join('');
+
+    const streakText = streak > 0
+      ? `<span class="fire">🔥</span> ${streak} day streak`
+      : 'No streak yet — start today!';
+
+    return `
+      <div class="habit-card${done ? ' done' : ''}" data-id="${h.id}">
+        <button class="check-btn${done ? ' checked' : ''}" data-person="${person}" data-id="${h.id}">
+          ${done ? '✓' : ''}
+        </button>
+        <div class="habit-info">
+          <div class="habit-name">${esc(h.name)}</div>
+          <div class="habit-streak">${streakText}</div>
+          <div class="dot-trail">${dots}</div>
+        </div>
+        <button class="del-btn" data-person="${person}" data-id="${h.id}" title="Remove habit">✕</button>
+      </div>`;
+  }).join('');
+}
+
+// ─── Update Stats ─────────────────────────────────────────────────────────────
+function updateStats(person) {
+  const today     = todayStr();
+  const doneCount = (completions[today]?.[person] || []).length;
+  const total     = habits[person].length;
+  const best      = bestStreak(person);
+
+  document.getElementById(`stat-${person}-today`).textContent =
+    total > 0 ? `${doneCount}/${total}` : '—';
+  document.getElementById(`stat-${person}-total`).textContent  = total;
+  document.getElementById(`stat-${person}-streak`).textContent =
+    best > 0 ? `🔥 ${best}` : '0';
+
+  // Celebration banner when all done
+  const banner = document.getElementById(`banner-${person}`);
+  if (total > 0 && doneCount === total) {
+    const name = person === 'cait' ? 'Cait' : 'Eric';
+    banner.innerHTML = `
+      <div class="couple-banner">
+        <div class="banner-icon">🎉</div>
+        <div class="banner-text">Amazing, ${name}! All habits done for today. You crushed it!</div>
+      </div>`;
+  } else {
+    banner.innerHTML = '';
+  }
+}
+
+// ─── Render Ideas ─────────────────────────────────────────────────────────────
+function renderIdeas() {
+  const container = document.getElementById('ideas-list');
+  const filtered  = ideas.filter(i => {
+    if (ideaFilter === 'to-cait') return i.to === 'cait';
+    if (ideaFilter === 'to-eric') return i.to === 'eric';
+    return true;
+  });
+
+  if (!filtered.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="emoji">💌</div>
+        <p>No ideas here yet. Leave a habit suggestion for each other below!</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(idea => {
+    const fromName = idea.from === 'cait' ? 'Cait' : 'Eric';
+    const toName   = idea.to   === 'cait' ? 'Cait' : 'Eric';
+
+    const statusPill = idea.status !== 'new'
+      ? `<span class="status-pill ${idea.status}">${idea.status === 'tried' ? '✓ Tried it!' : '⭐ Adopted!'}</span>`
+      : '';
+
+    const actionBtns = idea.status === 'new'
+      ? `<button class="idea-btn green"  data-action="tried"  data-id="${idea.id}">Tried it!</button>
+         <button class="idea-btn orange" data-action="adopt"  data-id="${idea.id}">Add as Habit</button>
+         <button class="idea-btn red"    data-action="delete" data-id="${idea.id}">✕</button>`
+      : `<button class="idea-btn red"    data-action="delete" data-id="${idea.id}">Remove</button>`;
+
+    return `
+      <div class="idea-card from-${idea.from}">
+        <div class="idea-meta">
+          <span class="from-badge ${idea.from}">${fromName}</span>
+          <span class="to-text">for ${toName}</span>
+          <span class="idea-date">${shortDate(idea.date)}</span>
+        </div>
+        <div class="idea-text">${esc(idea.text)}</div>
+        <div class="idea-actions">
+          ${statusPill}
+          <div style="flex:1"></div>
+          ${actionBtns}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const view = btn.dataset.view;
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`view-${view}`).classList.add('active');
+    btn.classList.add('active');
+  });
+});
+
+// ─── Filter chips ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    ideaFilter = chip.dataset.filter;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    renderIdeas();
+  });
+});
+
+// ─── Add habit buttons & Enter key ───────────────────────────────────────────
+['cait','eric'].forEach(person => {
+  document.getElementById(`add-btn-${person}`).addEventListener('click', () => addHabit(person));
+  document.getElementById(`input-${person}`).addEventListener('keydown', e => {
+    if (e.key === 'Enter') addHabit(person);
+  });
+});
+
+// ─── Habit list event delegation ──────────────────────────────────────────────
+['cait','eric'].forEach(person => {
+  document.getElementById(`habits-${person}`).addEventListener('click', e => {
+    const checkBtn = e.target.closest('.check-btn');
+    const delBtn   = e.target.closest('.del-btn');
+    if (checkBtn) toggleHabit(checkBtn.dataset.person, checkBtn.dataset.id);
+    if (delBtn)   deleteHabit(delBtn.dataset.person, delBtn.dataset.id);
+  });
+});
+
+// ─── Idea box event delegation ────────────────────────────────────────────────
+document.getElementById('ideas-list').addEventListener('click', e => {
+  const btn = e.target.closest('.idea-btn');
+  if (!btn) return;
+  const { action, id } = btn.dataset;
+  if (action === 'tried')  updateIdeaStatus(id, 'tried');
+  if (action === 'adopt')  adoptIdea(id);
+  if (action === 'delete') deleteIdea(id);
+});
+
+document.getElementById('send-idea-btn').addEventListener('click', addIdea);
+
+// ─── Keep from/to selects in sync ─────────────────────────────────────────────
+document.getElementById('idea-from').addEventListener('change', function() {
+  document.getElementById('idea-to').value = this.value === 'cait' ? 'eric' : 'cait';
+});
+document.getElementById('idea-to').addEventListener('change', function() {
+  document.getElementById('idea-from').value = this.value === 'cait' ? 'eric' : 'cait';
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+load();
+const todayLabel = friendlyToday();
+['cait','eric','ideas'].forEach(k => {
+  document.getElementById(`date-${k}`).textContent = todayLabel;
+});
+renderHabits('cait');
+renderHabits('eric');
+updateStats('cait');
+updateStats('eric');
+renderIdeas();
+</script>
+</body>
+</html>
