@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - "claude/etsy-pod-maine-coons-kk6wag"
+      - "main"
   workflow_dispatch:
 
 permissions:
