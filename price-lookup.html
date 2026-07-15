@@ -799,34 +799,39 @@
 
   // ---- Anthropic API call ----
   async function identifyItem(data, mediaType, apiKey) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-        'anthropic-dangerous-allow-browser': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 512,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data } },
-            {
-              type: 'text',
-              text: 'Identify the item in this photo. Return ONLY a valid JSON object with no markdown, no explanation, no code fences: {"name":"product name in 2-5 words","description":"one sentence about what it is","searchQuery":"best search term for online retail","category":"one of: electronics clothing shoes books toys furniture jewelry tools sports kitchen beauty collectibles other","brand":"brand if visible or empty string","condition":"new or used or unknown"}'
-            }
-          ]
-        }]
-      })
-    });
+    let res;
+    try {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+          'anthropic-dangerous-allow-browser': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 512,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mediaType, data } },
+              {
+                type: 'text',
+                text: 'Identify the item in this photo. Return ONLY a valid JSON object with no markdown, no explanation, no code fences: {"name":"product name in 2-5 words","description":"one sentence about what it is","searchQuery":"best search term for online retail","category":"one of: electronics clothing shoes books toys furniture jewelry tools sports kitchen beauty collectibles other","brand":"brand if visible or empty string","condition":"new or used or unknown"}'
+              }
+            ]
+          }]
+        })
+      });
+    } catch (networkErr) {
+      throw new Error('Could not reach Anthropic. Check that your API key is saved (tap ⚙), then try again. If it keeps failing, try opening the app in Safari or Chrome on a different network.');
+    }
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       const msg = body.error?.message || '';
-      if (res.status === 401) throw new Error('Invalid API key. Open Settings (⚙) to update it.');
+      if (res.status === 401) throw new Error('Invalid API key — double-check it in Settings (⚙). Keys start with sk-ant-api03-');
       if (res.status === 429) throw new Error('Rate limit reached. Wait a moment and try again.');
       throw new Error(msg || `API error ${res.status}. Please try again.`);
     }
