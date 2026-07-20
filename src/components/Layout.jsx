@@ -1,5 +1,6 @@
 const NAV = [
   { id: 'dashboard',  label: 'Dashboard',          icon: '📊' },
+  { id: 'life',       label: 'Life',                icon: '🎉' },
   { id: 'products',   label: 'Products',            icon: '📦' },
   { id: 'generator',  label: 'Listing Generator',   icon: '✍️'  },
   { id: 'calendar',   label: 'Content Calendar',    icon: '📅' },
@@ -13,7 +14,7 @@ export default function Layout({ children, activeTab, setActiveTab, productCount
         <div className="px-6 pt-7 pb-6 border-b border-white/10">
           <div className="text-2xl mb-1">🐾</div>
           <h1 className="text-base font-bold leading-tight text-white">Traveling Maine Coons</h1>
-          <p className="text-xs text-white/50 mt-0.5">Etsy POD Hub</p>
+          <p className="text-xs text-white/50 mt-0.5">Life & Shop Hub</p>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -49,7 +50,7 @@ export default function Layout({ children, activeTab, setActiveTab, productCount
         <header className="md:hidden flex items-center justify-between bg-tmc-navy text-white px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="text-xl">🐾</span>
-            <span className="font-bold text-sm">TMC Etsy Hub</span>
+            <span className="font-bold text-sm">TMC Hub</span>
           </div>
           <span className="text-white/50 text-sm">{productCount} products</span>
         </header>
