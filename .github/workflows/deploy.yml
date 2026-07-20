@@ -27,7 +27,7 @@ jobs:
       - run: npm install
       - run: npm run build
         env:
-          VITE_BASE_URL: /mainecoon-travels/
+          VITE_BASE_URL: /2soulfulsiblings/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
