@@ -1,4 +1,8 @@
 import { STATUS_CONFIG, CATEGORIES } from '../data/products.js'
+import {
+  DATE_CATEGORIES, PLAN_TYPES,
+  nextBirthdayDate, daysUntil, formatDaysAway, startOfToday,
+} from '../data/lifeEvents.js'
 
 const TIPS = [
   'Printify tip: Always order a sample before marking a product live. Colors print differently than screen.',
@@ -9,7 +13,24 @@ const TIPS = [
   'Listing tip: Describe what the product *feels* like, not just what it looks like.',
 ]
 
-export default function Dashboard({ products, setActiveTab }) {
+export default function Dashboard({ products, setActiveTab, birthdays = [], plans = [] }) {
+  const today = startOfToday()
+
+  const lifeReminders = [
+    ...birthdays.map(b => {
+      const next = nextBirthdayDate(b.month, b.day, today)
+      const cfg = DATE_CATEGORIES[b.category] ?? DATE_CATEGORIES.other
+      return { id: b.id, icon: cfg.icon, label: b.name, days: daysUntil(next, today) }
+    }),
+    ...plans
+      .filter(p => new Date(p.date + 'T12:00:00') >= today)
+      .map(p => {
+        const cfg = PLAN_TYPES[p.type] ?? PLAN_TYPES.other
+        const d = new Date(p.date + 'T12:00:00')
+        return { id: p.id, icon: cfg.icon, label: p.title, days: daysUntil(new Date(d.getFullYear(), d.getMonth(), d.getDate()), today) }
+      }),
+  ].sort((a, b) => a.days - b.days).slice(0, 4)
+
   const counts = {
     total:     products.length,
     idea:      products.filter(p => p.status === 'idea').length,
@@ -33,7 +54,37 @@ export default function Dashboard({ products, setActiveTab }) {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-tmc-navy">Good morning, Cait! 🌅</h2>
-        <p className="text-gray-500 mt-0.5 text-sm">Your Traveling Maine Coons Etsy POD shop at a glance.</p>
+        <p className="text-gray-500 mt-0.5 text-sm">Your life and your Traveling Maine Coons shop, at a glance.</p>
+      </div>
+
+      {/* Life reminders */}
+      <div className="bg-white rounded-xl border border-tmc-border p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-tmc-navy">Coming up in your life 🎉</h3>
+          <button onClick={() => setActiveTab('life')} className="text-xs text-tmc-teal hover:underline">
+            View all →
+          </button>
+        </div>
+        {lifeReminders.length === 0 ? (
+          <p className="text-sm text-gray-400">
+            No birthdays or plans saved yet.{' '}
+            <button onClick={() => setActiveTab('life')} className="text-tmc-teal hover:underline font-medium">
+              Add the ones you keep forgetting →
+            </button>
+          </p>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-3">
+            {lifeReminders.map(r => (
+              <div key={r.id} className="flex items-center gap-3 bg-tmc-cream rounded-lg px-3 py-2">
+                <span className="text-lg flex-shrink-0">{r.icon}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-tmc-navy truncate">{r.label}</div>
+                  <div className="text-xs text-gray-500">{formatDaysAway(r.days)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Stats row */}
@@ -154,6 +205,7 @@ export default function Dashboard({ products, setActiveTab }) {
         <h3 className="font-semibold text-tmc-navy mb-4">Quick Actions</h3>
         <div className="flex flex-wrap gap-3">
           {[
+            { label: 'Add a birthday or plan', icon: '🎉', tab: 'life' },
             { label: 'Add a product idea', icon: '➕', tab: 'products' },
             { label: 'Generate an Etsy listing', icon: '✍️', tab: 'generator' },
             { label: 'Plan content', icon: '📅', tab: 'calendar' },

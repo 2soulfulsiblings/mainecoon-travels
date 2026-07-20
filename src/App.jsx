@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Layout from './components/Layout.jsx'
 import Dashboard from './components/Dashboard.jsx'
+import Life from './components/Life.jsx'
 import ProductManager from './components/ProductManager.jsx'
 import ListingGenerator from './components/ListingGenerator.jsx'
 import ContentCalendar from './components/ContentCalendar.jsx'
@@ -27,6 +28,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [products, setProducts]   = useState(() => loadFromStorage('tmc_products', SEED_PRODUCTS))
   const [events, setEvents]       = useState(() => loadFromStorage('tmc_events', SEED_CAL_EVENTS))
+  const [birthdays, setBirthdays] = useState(() => loadFromStorage('tmc_birthdays', []))
+  const [plans, setPlans]         = useState(() => loadFromStorage('tmc_plans', []))
   const [generatorProduct, setGeneratorProduct] = useState(null)
 
   useEffect(() => {
@@ -37,6 +40,14 @@ export default function App() {
     localStorage.setItem('tmc_events', JSON.stringify(events))
   }, [events])
 
+  useEffect(() => {
+    localStorage.setItem('tmc_birthdays', JSON.stringify(birthdays))
+  }, [birthdays])
+
+  useEffect(() => {
+    localStorage.setItem('tmc_plans', JSON.stringify(plans))
+  }, [plans])
+
   const handleGenerateListing = (product) => {
     setGeneratorProduct(product)
     setActiveTab('generator')
@@ -45,7 +56,20 @@ export default function App() {
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab} productCount={products.length}>
       {activeTab === 'dashboard' && (
-        <Dashboard products={products} setActiveTab={setActiveTab} />
+        <Dashboard
+          products={products}
+          setActiveTab={setActiveTab}
+          birthdays={birthdays}
+          plans={plans}
+        />
+      )}
+      {activeTab === 'life' && (
+        <Life
+          birthdays={birthdays}
+          setBirthdays={setBirthdays}
+          plans={plans}
+          setPlans={setPlans}
+        />
       )}
       {activeTab === 'products' && (
         <ProductManager
