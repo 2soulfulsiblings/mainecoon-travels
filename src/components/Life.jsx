@@ -307,6 +307,23 @@ export default function Life({ birthdays, setBirthdays, plans, setPlans }) {
           </details>
         )}
       </div>
+
+      {/* Other life tools */}
+      <div className="bg-white rounded-xl border border-tmc-border p-5">
+        <h3 className="font-semibold text-tmc-navy mb-3">More Tools</h3>
+        <a
+          href={`${import.meta.env.BASE_URL}habit-tracker/`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 rounded-lg border border-tmc-border px-4 py-3 hover:border-tmc-teal hover:bg-tmc-teal-light transition-all"
+        >
+          <span className="text-xl">✅</span>
+          <div>
+            <div className="text-sm font-medium text-tmc-navy">Cait & Eric Habit Tracker</div>
+            <div className="text-xs text-gray-400">Daily habits, streaks, and a shared idea box</div>
+          </div>
+        </a>
+      </div>
     </div>
   )
 }
