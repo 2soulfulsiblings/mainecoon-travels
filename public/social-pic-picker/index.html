@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Social Pic Picker | Traveling Maine Coons</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      background: #1A1A2E; color: white;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    img { display: block; max-width: 100%; }
+    button { cursor: pointer; font-family: inherit; }
+    p { margin: 0; }
+    h1 { margin: 0; }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 16px;
+    }
+
+    @keyframes fadeIn   { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes slideUp  { from { transform: translateY(18px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+    @keyframes spin     { to { transform: rotate(360deg) } }
+    @keyframes blink    { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }
+
+    .anim-fade  { animation: fadeIn 0.35s ease-in; }
+    .anim-slide { animation: slideUp 0.3s ease-out; }
+    .anim-spin  { animation: spin 1s linear infinite; display: inline-block; }
+    .anim-blink { animation: blink 1.8s ease-in-out infinite; }
+
+    .photo-card .photo-img { transition: transform 0.5s ease; }
+    .photo-card:hover .photo-img { transform: scale(1.06); }
+    .photo-card .hover-overlay { opacity: 0; transition: opacity 0.25s; }
+    .photo-card:hover .hover-overlay { opacity: 1; }
+    .photo-card .rm-btn { opacity: 0; transition: opacity 0.2s; }
+    .photo-card:hover .rm-btn { opacity: 1; }
+
+    .upload-zone { transition: border-color 0.25s, background 0.25s, transform 0.2s; }
+    .bar-fill { transition: width 0.65s cubic-bezier(.4,0,.2,1); }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+<script>
+'use strict';
+
+// ── Constants ────────────────────────────────────────────────
+const PLATFORMS = [
+  { id: 'tiktok',    label: 'TikTok',       emoji: '🎵' },
+  { id: 'instagram', label: 'Instagram',     emoji: '📸' },
+  { id: 'overall',   label: 'Best Overall',  emoji: '⭐' },
+];
+
+const TAGS = [
+  { id: 'golden_hour', label: 'Golden Hour',        bonus: 12, icon: '🌅', tip: 'Warm sunset tones = massive engagement right now' },
+  { id: 'close_up',    label: 'Close-Up Portrait',  bonus: 10, icon: '🐾', tip: 'Extreme close-ups are trending hard on TikTok' },
+  { id: 'van_life',    label: 'Van Life / Adventure',bonus: 10, icon: '🚐', tip: 'Travel + pets is a viral combo' },
+  { id: 'funny',       label: 'Funny Moment',        bonus: 14, icon: '😂', tip: 'Humor drives shares — top engagement trigger' },
+  { id: 'cozy',        label: 'Cozy Aesthetic',      bonus: 8,  icon: '☕', tip: 'Soft, warm vibes trending on Instagram' },
+  { id: 'action',      label: 'Action Shot',         bonus: 9,  icon: '⚡', tip: 'Movement and energy stop the scroll' },
+  { id: 'sunset',      label: 'Sunset / Sky',        bonus: 11, icon: '🌇', tip: 'Dramatic skies always perform well' },
+  { id: 'nature',      label: 'Nature Backdrop',     bonus: 8,  icon: '🌿', tip: 'Outdoor settings boost reach on discovery feeds' },
+  { id: 'reaction',    label: 'Reaction Face',       bonus: 13, icon: '👀', tip: 'Expressive pet faces = instant stop-scroll moment' },
+];
+
+// ── State ────────────────────────────────────────────────────
+let photos      = [];
+let platform    = 'tiktok';
+let activeTags  = [];
+let analyzing   = false;
+let uid         = 1;
+
+// ── Image Analysis ───────────────────────────────────────────
+function satFromRgb(r, g, b) {
+  const R = r/255, G = g/255, B = b/255;
+  const mx = Math.max(R,G,B), mn = Math.min(R,G,B);
+  const l = (mx+mn)/2;
+  return mx === mn ? 0 : (mx-mn) / (1 - Math.abs(2*l-1));
+}
+
+function analyzeImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const s = Math.min(250/img.naturalWidth, 250/img.naturalHeight, 1);
+        canvas.width  = Math.max(1, Math.round(img.naturalWidth  * s));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * s));
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        let sumBr=0, sumSat=0, sumR=0, sumB=0, n=0;
+        const brArr = [];
+        for (let i=0; i<data.length; i+=4) {
+          if (data[i+3] < 10) continue;
+          const r=data[i], g=data[i+1], b=data[i+2];
+          const br = 0.299*r + 0.587*g + 0.114*b;
+          sumBr+=br; brArr.push(br);
+          sumSat += satFromRgb(r,g,b);
+          sumR+=r; sumB+=b; n++;
+        }
+        URL.revokeObjectURL(url);
+        if (!n) { resolve(neutral()); return; }
+        const avgBr = sumBr/n;
+        const variance = brArr.reduce((s,v) => s+(v-avgBr)**2, 0) / n;
+        resolve({
+          brightness: Math.max(0, Math.round(100 - (Math.abs(avgBr-135)/120)*100)),
+          saturation: Math.min(100, Math.round((sumSat/n)*180)),
+          contrast:   Math.min(100, Math.round(Math.sqrt(variance)/75*100)),
+          warmth:     Math.min(100, Math.round(Math.max(0,(sumR/n-sumB/n)/255*200))),
+          aspect:     img.naturalHeight > img.naturalWidth*1.1 ? 'portrait'
+                    : img.naturalWidth  > img.naturalHeight*1.2 ? 'landscape' : 'square',
+        });
+      } catch(e) { URL.revokeObjectURL(url); reject(e); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Cannot load')); };
+    img.src = url;
+  });
+}
+
+function neutral() {
+  return { brightness:50, saturation:50, contrast:50, warmth:30, aspect:'square' };
+}
+
+// ── Scoring ──────────────────────────────────────────────────
+function clamp(v,lo,hi) { return Math.min(hi, Math.max(lo, v)); }
+
+function score(metrics, tags) {
+  const { brightness:br, saturation:sat, contrast:con, warmth:wa } = metrics;
+  const bonus = tags.reduce((s,id) => s + (TAGS.find(t=>t.id===id)?.bonus ?? 0), 0);
+  const tiktok    = clamp(sat*0.38 + con*0.35 + br*0.27  + bonus*0.8, 0, 100);
+  const instagram = clamp(br*0.38  + sat*0.32 + wa*0.12  + con*0.18 + bonus*0.6, 0, 100);
+  return { tiktok: Math.round(tiktok), instagram: Math.round(instagram), overall: Math.round((tiktok+instagram)/2) };
+}
+
+function tier(s) {
+  if (s>=80) return { label:'Top Pick', fg:'#34d399', bg:'rgba(52,211,153,.15)',  bd:'rgba(52,211,153,.4)' };
+  if (s>=65) return { label:'Great',    fg:'#2dd4bf', bg:'rgba(45,212,191,.15)',  bd:'rgba(45,212,191,.4)' };
+  if (s>=50) return { label:'Good',     fg:'#fbbf24', bg:'rgba(251,191,36,.15)',  bd:'rgba(251,191,36,.4)' };
+  if (s>=35) return { label:'Fair',     fg:'#fb923c', bg:'rgba(251,146,60,.15)',  bd:'rgba(251,146,60,.4)' };
+  return             { label:'Skip',    fg:'#f87171', bg:'rgba(248,113,113,.15)', bd:'rgba(248,113,113,.4)' };
+}
+
+function tips(m) {
+  const out = [];
+  if      (m.brightness < 40) out.push({ok:false, text:'Too dark — try brightening in editing'});
+  else if (m.brightness > 85) out.push({ok:false, text:'Slightly overexposed — reduce highlights'});
+  else                        out.push({ok:true,  text:'Exposure looks solid'});
+  if      (m.saturation < 35) out.push({ok:false, text:'Boost the vibrancy — social media loves color'});
+  else if (m.saturation > 80) out.push({ok:true,  text:'Super vibrant — will pop in the feed'});
+  else                        out.push({ok:true,  text:'Color saturation is on point'});
+  if      (m.contrast   < 35) out.push({ok:false, text:'Flat contrast — add some punch in editing'});
+  else                        out.push({ok:true,  text:'Good contrast — stops the scroll'});
+  if      (m.warmth     > 55) out.push({ok:true,  text:'Warm tones — performs well on Instagram'});
+  return out;
+}
+
+// ── Render helpers ───────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function bar(label, val, color) {
+  return `<div style="margin-bottom:6px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span style="font-size:11px;color:rgba(255,255,255,.5)">${label}</span>
+      <span style="font-size:11px;font-weight:700">${val}</span>
+    </div>
+    <div style="height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden">
+      <div class="bar-fill" style="height:100%;background:${color};width:${val}%;border-radius:2px"></div>
+    </div>
+  </div>`;
+}
+
+// ── Card ─────────────────────────────────────────────────────
+function renderCard(p, idx) {
+  if (!p.scores) {
+    return `<div class="anim-blink" style="border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);overflow:hidden">
+      <div style="aspect-ratio:1;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:2.5rem">
+        <span class="anim-spin">⏳</span>
+      </div>
+      <div style="padding:12px">
+        <div style="height:11px;background:rgba(255,255,255,.1);border-radius:4px;width:60%;margin-bottom:8px"></div>
+        <div style="height:8px;background:rgba(255,255,255,.06);border-radius:4px"></div>
+      </div>
+    </div>`;
+  }
+
+  const sc = p.scores[platform];
+  const t  = tier(sc);
+  const rank  = idx + 1;
+  const medal = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'';
+  const ts    = tips(p.metrics);
+  const plLabel = PLATFORMS.find(x=>x.id===platform)?.label ?? '';
+
+  return `
+  <div class="photo-card anim-slide" style="border-radius:16px;background:${p.selected?'rgba(45,212,191,.06)':'rgba(255,255,255,.05)'};border:1px solid ${p.selected?'#2DD4BF':'rgba(255,255,255,.1)'};overflow:hidden;${p.selected?'box-shadow:0 8px 24px rgba(45,212,191,.15)':''}">
+    <div style="position:relative;aspect-ratio:1;overflow:hidden">
+      <img class="photo-img" src="${esc(p.preview)}" alt="${esc(p.name)}" style="width:100%;height:100%;object-fit:cover" />
+      ${medal?`<div style="position:absolute;top:8px;left:8px;font-size:1.25rem;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))">${medal}</div>`:''}
+      <div style="position:absolute;top:8px;right:8px;padding:2px 8px;border-radius:999px;font-size:.7rem;font-weight:700;background:${t.bg};color:${t.fg};border:1px solid ${t.bd}">${t.label}</div>
+      <div class="hover-overlay" style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.82),transparent);display:flex;align-items:flex-end;padding:12px">
+        <div><div style="font-size:1.75rem;font-weight:900;line-height:1">${sc}</div><div style="font-size:.75rem;color:rgba(255,255,255,.7)">${plLabel} score</div></div>
+      </div>
+      <button class="rm-btn" onclick="removePhoto(${p.id})" title="Remove"
+        style="position:absolute;top:8px;left:${medal?'36px':'8px'};width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.65);border:none;color:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;font-size:.7rem"
+        onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='rgba(255,255,255,.7)'">✕</button>
+      <button onclick="toggleSelect(${p.id})"
+        style="position:absolute;bottom:8px;right:8px;width:28px;height:28px;border-radius:50%;background:${p.selected?'#2DD4BF':'rgba(0,0,0,.55)'};border:none;color:white;font-size:.875rem;font-weight:700;transition:background .2s"
+        title="${p.selected?'Deselect':'Mark as pick'}">✓</button>
+    </div>
+    <div style="padding:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:.75rem;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;margin-right:8px">${esc(p.name)}</span>
+        <span style="font-size:1.375rem;font-weight:900;color:${t.fg};flex-shrink:0">${sc}</span>
+      </div>
+      <div style="display:flex;border-radius:8px;overflow:hidden;background:rgba(255,255,255,.04);margin-bottom:8px">
+        <div style="flex:1;text-align:center;padding:5px 0"><div style="font-size:.65rem;color:rgba(255,255,255,.4);margin-bottom:1px">🎵</div><div style="font-size:.75rem;font-weight:700">${p.scores.tiktok}</div></div>
+        <div style="flex:1;text-align:center;padding:5px 0;border-left:1px solid rgba(255,255,255,.07);border-right:1px solid rgba(255,255,255,.07)"><div style="font-size:.65rem;color:rgba(255,255,255,.4);margin-bottom:1px">📸</div><div style="font-size:.75rem;font-weight:700">${p.scores.instagram}</div></div>
+        <div style="flex:1;text-align:center;padding:5px 0"><div style="font-size:.65rem;color:rgba(255,255,255,.4);margin-bottom:1px">⭐</div><div style="font-size:.75rem;font-weight:700">${p.scores.overall}</div></div>
+      </div>
+      <button onclick="toggleExpand(${p.id})"
+        style="width:100%;background:none;border:none;border-top:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.4);font-size:.75rem;padding:7px 0 0;display:flex;align-items:center;justify-content:center;gap:4px"
+        onmouseover="this.style.color='rgba(255,255,255,.7)'" onmouseout="this.style.color='rgba(255,255,255,.4)'">
+        ${p.expanded?'▲ Less':'▼ Details'}
+      </button>
+      ${p.expanded?`
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)" class="anim-fade">
+        ${bar('Brightness', p.metrics.brightness, '#fbbf24')}
+        ${bar('Vibrancy',   p.metrics.saturation, '#ec4899')}
+        ${bar('Contrast',   p.metrics.contrast,   '#a78bfa')}
+        ${bar('Warmth',     p.metrics.warmth,      '#fb923c')}
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">
+          ${ts.map(t=>`<div style="display:flex;align-items:flex-start;gap:5px;font-size:.72rem;color:${t.ok?'#34d399':'#fbbf24'}"><span style="flex-shrink:0">${t.ok?'✓':'!'}</span><span>${t.text}</span></div>`).join('')}
+        </div>
+        ${p.metrics.aspect?`<div style="margin-top:8px;font-size:.7rem;color:rgba(255,255,255,.3)">Orientation: <span style="color:rgba(255,255,255,.5);text-transform:capitalize">${p.metrics.aspect}</span>${p.metrics.aspect==='portrait'?' — perfect for TikTok/Reels':p.metrics.aspect==='landscape'?' — crop to 9:16 for TikTok':''}</div>`:''}
+      </div>`:''}
+    </div>
+  </div>`;
+}
+
+// ── Main render ──────────────────────────────────────────────
+function render() {
+  const sorted = [...photos].sort((a,b) => {
+    if (!a.scores && !b.scores) return 0;
+    if (!a.scores) return 1;
+    if (!b.scores) return -1;
+    return b.scores[platform] - a.scores[platform];
+  });
+  const topPicks  = sorted.filter(p => p.scores && p.scores[platform] >= 65);
+  const plLabel   = PLATFORMS.find(p=>p.id===platform)?.label ?? '';
+
+  document.getElementById('app').innerHTML = `
+  <div style="min-height:100vh;position:relative">
+    <div style="position:fixed;inset:0;background:linear-gradient(135deg,#1A1A2E,#16213E,#0F3460);z-index:0;pointer-events:none"></div>
+    <div style="position:fixed;top:0;right:0;width:420px;height:420px;background:rgba(255,107,53,.05);border-radius:50%;filter:blur(90px);z-index:0;pointer-events:none"></div>
+    <div style="position:fixed;bottom:0;left:0;width:420px;height:420px;background:rgba(45,212,191,.05);border-radius:50%;filter:blur(90px);z-index:0;pointer-events:none"></div>
+
+    <div style="position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:32px 16px">
+
+      <!-- Header -->
+      <div style="text-align:center;margin-bottom:32px">
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:2.25rem">🐾</span>
+          <h1 style="font-size:1.875rem;font-weight:900;letter-spacing:-.025em">
+            <span style="color:#FF6B35">Social</span> Pic Picker
+          </h1>
+          <span style="font-size:2.25rem">✨</span>
+        </div>
+        <p style="color:rgba(255,255,255,.5);font-size:.875rem;max-width:400px;margin:0 auto;line-height:1.55">
+          Upload your Maine Coon photos and find out which ones will crush it on TikTok and Instagram
+        </p>
+      </div>
+
+      ${photos.length > 0 ? `
+      <!-- Stats bar -->
+      <div class="anim-fade" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:11px 16px;margin-bottom:22px">
+        <div style="display:flex;align-items:center;gap:16px;font-size:.875rem;flex-wrap:wrap">
+          <span style="color:rgba(255,255,255,.5)">${photos.length} photo${photos.length!==1?'s':''} loaded</span>
+          ${topPicks.length>0?`<span style="color:#34d399">✨ ${topPicks.length} top pick${topPicks.length!==1?'s':''}</span>`:''}
+          ${analyzing?`<span style="color:#2DD4BF;font-size:.75rem;display:flex;align-items:center;gap:6px"><span class="anim-blink" style="width:7px;height:7px;background:#2DD4BF;border-radius:50%;display:inline-block"></span> Analyzing…</span>`:''}
+        </div>
+        <button onclick="clearAll()"
+          style="font-size:.75rem;color:rgba(255,255,255,.4);background:none;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:4px 10px;transition:color .15s,border-color .15s"
+          onmouseover="this.style.color='#f87171';this.style.borderColor='rgba(248,113,113,.4)'"
+          onmouseout="this.style.color='rgba(255,255,255,.4)';this.style.borderColor='rgba(255,255,255,.1)'">
+          ↺ Clear all
+        </button>
+      </div>` : ''}
+
+      <!-- Upload zone -->
+      <div id="upload-zone" class="upload-zone"
+        style="cursor:pointer;border-radius:16px;border:2px dashed rgba(255,255,255,.2);padding:40px 24px;display:flex;flex-direction:column;align-items:center;gap:16px;min-height:210px;background:rgba(255,255,255,.02);margin-bottom:24px;justify-content:center"
+        onclick="document.getElementById('file-input').click()"
+        ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)"
+        onmouseover="if(!this._drag){this.style.borderColor='rgba(255,107,53,.6)';this.style.background='rgba(255,107,53,.03)'}"
+        onmouseout="if(!this._drag){this.style.borderColor='rgba(255,255,255,.2)';this.style.background='rgba(255,255,255,.02)'}">
+        <input type="file" id="file-input" accept="image/*" multiple style="display:none" onchange="onFileInput(this)" />
+        <div style="width:68px;height:68px;border-radius:50%;background:rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-size:1.875rem">📤</div>
+        <div style="text-align:center">
+          <p style="font-size:1.1rem;font-weight:600;margin-bottom:5px">Upload your photos</p>
+          <p style="font-size:.875rem;color:rgba(255,255,255,.5);line-height:1.5">Drag & drop or click to browse — any format, multiple at once</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          ${['JPG','PNG','HEIC','WEBP','GIF'].map(f=>`<span style="font-size:.7rem;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.4)">${f}</span>`).join('')}
+        </div>
+      </div>
+
+      ${photos.length > 0 ? `
+      <!-- Trending tags -->
+      <div style="border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);padding:16px;margin-bottom:22px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <span>📈</span>
+          <span style="font-size:.875rem;font-weight:600">Trending Tags</span>
+          <span style="font-size:.75rem;color:rgba(255,255,255,.4)">— boost your score</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${TAGS.map(tag => {
+            const on = activeTags.includes(tag.id);
+            return `<button onclick="toggleTag('${tag.id}')" title="${esc(tag.tip)}"
+              style="font-size:.75rem;padding:6px 12px;border-radius:999px;font-weight:500;border:1px solid ${on?'#FF6B35':'rgba(255,255,255,.15)'};background:${on?'#FF6B35':'rgba(255,255,255,.05)'};color:${on?'white':'rgba(255,255,255,.65)'};transition:all .18s">
+              ${tag.icon} ${tag.label}${on?` <span style="opacity:.75">+${tag.bonus}</span>`:''}
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Platform tabs -->
+      <div style="margin-bottom:22px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span>📊</span>
+          <span style="font-size:.875rem;font-weight:600">Sort by platform</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${PLATFORMS.map(pl => {
+            const on = platform === pl.id;
+            return `<button onclick="setPlatform('${pl.id}')"
+              style="padding:8px 18px;border-radius:12px;font-size:.875rem;font-weight:600;border:1px solid ${on?'transparent':'rgba(255,255,255,.1)'};background:${on?'#FF6B35':'rgba(255,255,255,.05)'};color:${on?'white':'rgba(255,255,255,.65)'};box-shadow:${on?'0 6px 20px rgba(255,107,53,.28)':'none'};transition:all .18s">
+              ${pl.emoji} ${pl.label}
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+
+      ${topPicks.length > 0 ? `
+      <div class="anim-fade" style="border-radius:12px;background:linear-gradient(135deg,rgba(255,107,53,.1),rgba(45,212,191,.08));border:1px solid rgba(255,107,53,.2);padding:14px 16px;margin-bottom:22px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span>✨</span>
+          <span style="font-size:.875rem;font-weight:700;color:#FF6B35">Your Top ${Math.min(topPicks.length,3)} for ${plLabel}</span>
+        </div>
+        <p style="font-size:.75rem;color:rgba(255,255,255,.5)">${topPicks.slice(0,3).map(p=>esc(p.name.replace(/\.[^.]+$/,''))).join(', ')}</p>
+      </div>` : ''}
+
+      <!-- Grid -->
+      <div class="photo-grid" style="margin-bottom:32px">
+        ${sorted.map((p,i) => renderCard(p,i)).join('')}
+      </div>
+
+      <!-- Footer tips -->
+      <div style="border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:16px;margin-bottom:32px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="color:#2DD4BF">ℹ</span>
+          <span style="font-size:.75rem;font-weight:600;color:rgba(255,255,255,.7)">How the scoring works</span>
+        </div>
+        <div style="font-size:.75rem;color:rgba(255,255,255,.4);line-height:1.65">
+          <p style="margin-bottom:3px"><span style="color:rgba(255,255,255,.65)">TikTok</span> weighs vibrancy (38%) + contrast (35%) + brightness (27%) — punchy and vibrant wins.</p>
+          <p style="margin-bottom:3px"><span style="color:rgba(255,255,255,.65)">Instagram</span> weighs brightness (38%) + vibrancy (32%) + warmth (12%) + contrast (18%) — clean and aesthetic.</p>
+          <p>Trending tags add bonus points based on what's driving engagement right now.</p>
+        </div>
+      </div>` : ''}
+
+      ${photos.length === 0 ? `
+      <div style="text-align:center;padding:64px 0">
+        <div style="font-size:5rem;margin-bottom:16px">📸</div>
+        <p style="color:rgba(255,255,255,.4);font-size:.875rem">Upload some photos to get started — Stevie, Bridget &amp; Jewels await their moment!</p>
+      </div>` : ''}
+
+    </div>
+  </div>`;
+}
+
+// ── Handlers ─────────────────────────────────────────────────
+function onDragOver(e) {
+  e.preventDefault();
+  const z = document.getElementById('upload-zone');
+  if (!z) return;
+  z._drag = true;
+  z.style.borderColor = '#2DD4BF';
+  z.style.background  = 'rgba(45,212,191,.05)';
+  z.style.transform   = 'scale(1.01)';
+}
+function onDragLeave(e) {
+  const z = document.getElementById('upload-zone');
+  if (!z) return;
+  z._drag = false;
+  z.style.borderColor = 'rgba(255,255,255,.2)';
+  z.style.background  = 'rgba(255,255,255,.02)';
+  z.style.transform   = 'scale(1)';
+}
+function onDrop(e) {
+  e.preventDefault();
+  onDragLeave(e);
+  const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+  if (files.length) addPhotos(files);
+}
+function onFileInput(input) {
+  const files = [...input.files].filter(f => f.type.startsWith('image/'));
+  input.value = '';
+  if (files.length) addPhotos(files);
+}
+
+async function addPhotos(files) {
+  analyzing = true;
+  const batch = files.map(file => ({
+    id: uid++, name: file.name,
+    preview: URL.createObjectURL(file),
+    file, metrics: null, scores: null,
+    expanded: false, selected: false,
+  }));
+  photos = [...photos, ...batch];
+  render();
+
+  await Promise.all(batch.map(async np => {
+    try {
+      const m = await analyzeImage(np.file);
+      const existing = photos.find(p => p.id === np.id);
+      if (existing) { existing.metrics = m; existing.scores = score(m, activeTags); }
+    } catch {
+      const existing = photos.find(p => p.id === np.id);
+      if (existing) { existing.metrics = neutral(); existing.scores = score(existing.metrics, activeTags); }
+    }
+    render();
+  }));
+
+  analyzing = false;
+  render();
+}
+
+function removePhoto(id) {
+  const p = photos.find(p => p.id === id);
+  if (p?.preview) URL.revokeObjectURL(p.preview);
+  photos = photos.filter(p => p.id !== id);
+  render();
+}
+function clearAll() {
+  photos.forEach(p => { if (p.preview) URL.revokeObjectURL(p.preview); });
+  photos = []; activeTags = [];
+  render();
+}
+function toggleTag(id) {
+  activeTags = activeTags.includes(id) ? activeTags.filter(t=>t!==id) : [...activeTags, id];
+  photos = photos.map(p => p.metrics ? {...p, scores: score(p.metrics, activeTags)} : p);
+  render();
+}
+function setPlatform(id) { platform = id; render(); }
+function toggleExpand(id) { photos = photos.map(p => p.id===id ? {...p, expanded:!p.expanded} : p); render(); }
+function toggleSelect(id) { photos = photos.map(p => p.id===id ? {...p, selected:!p.selected} : p); render(); }
+
+// Boot
+render();
+</script>
+</body>
+</html>

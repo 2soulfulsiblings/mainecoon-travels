@@ -209,15 +209,19 @@ export default function Dashboard({ products, setActiveTab, birthdays = [], plan
             { label: 'Add a product idea', icon: '➕', tab: 'products' },
             { label: 'Generate an Etsy listing', icon: '✍️', tab: 'generator' },
             { label: 'Plan content', icon: '📅', tab: 'calendar' },
-          ].map(a => (
-            <button
-              key={a.label}
-              onClick={() => setActiveTab(a.tab)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-tmc-border hover:border-tmc-teal hover:bg-tmc-teal-light text-sm font-medium text-gray-700 hover:text-tmc-teal-dark transition-all"
-            >
-              <span>{a.icon}</span> {a.label}
-            </button>
-          ))}
+            { label: 'Pick your best social photos', icon: '📸', href: `${import.meta.env.BASE_URL}social-pic-picker/` },
+          ].map(a => {
+            const className = "flex items-center gap-2 px-4 py-2.5 rounded-lg border border-tmc-border hover:border-tmc-teal hover:bg-tmc-teal-light text-sm font-medium text-gray-700 hover:text-tmc-teal-dark transition-all"
+            return a.href ? (
+              <a key={a.label} href={a.href} target="_blank" rel="noopener noreferrer" className={className}>
+                <span>{a.icon}</span> {a.label}
+              </a>
+            ) : (
+              <button key={a.label} onClick={() => setActiveTab(a.tab)} className={className}>
+                <span>{a.icon}</span> {a.label}
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
