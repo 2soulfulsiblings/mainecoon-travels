@@ -175,12 +175,22 @@ export default function ContentCalendar({ events, setEvents }) {
           <h2 className="text-2xl font-bold text-tmc-navy">Content Calendar 📅</h2>
           <p className="text-sm text-gray-500 mt-0.5">Plan product launches, social posts, travel, and sales.</p>
         </div>
-        <button
-          onClick={() => openNew(isoDate(year, month, today.getDate()))}
-          className="flex items-center gap-2 bg-tmc-teal text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-tmc-teal-dark transition"
-        >
-          ➕ Add Event
-        </button>
+        <div className="flex items-center gap-3">
+          <a
+            href={`${import.meta.env.BASE_URL}social-pic-picker/`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 border border-tmc-border px-4 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:border-tmc-teal hover:bg-tmc-teal-light hover:text-tmc-teal-dark transition"
+          >
+            📸 Pic Picker
+          </a>
+          <button
+            onClick={() => openNew(isoDate(year, month, today.getDate()))}
+            className="flex items-center gap-2 bg-tmc-teal text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-tmc-teal-dark transition"
+          >
+            ➕ Add Event
+          </button>
+        </div>
       </div>
 
       {/* Legend */}
