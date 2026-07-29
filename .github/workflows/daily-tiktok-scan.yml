@@ -1,0 +1,39 @@
+name: TikTok Viral Tracker (dry run)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write  # needed to commit the sample report back to the repo
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tracker (dry run / sample data only)
+        run: python run_daily.py --dry-run
+
+      - name: Commit and push sample report
+        run: |
+          git config user.name  "Traveling Maine Coons Bot"
+          git config user.email "cait@reedsbeadsbeyond.com"
+          git add reports/
+          # Only commit if there are changes
+          git diff --cached --quiet || git commit -m "chore: sample TikTok report $(date +%Y-%m-%d)"
+          git push origin main
