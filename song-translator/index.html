@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SongSync — Live Lyric Translator</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <h1>🎶 SongSync</h1>
+  <p class="tagline">Play a song, paste the lyrics, watch the translation follow along in real time.</p>
+</header>
+
+<main class="layout">
+
+  <section class="setup-panel">
+    <h2>1. Load your song</h2>
+    <label class="field">
+      <span>Audio file</span>
+      <input type="file" id="audioFile" accept="audio/*" />
+    </label>
+
+    <audio id="player" controls></audio>
+
+    <h2>2. Paste the lyrics</h2>
+    <p class="hint">
+      Plain lyrics work fine — SongSync will spread lines evenly across the song.
+      For perfect sync, paste timed lyrics in <strong>LRC format</strong>
+      (e.g. <code>[00:12.50] first line</code>) — most lyric sites offer this.
+    </p>
+    <textarea id="lyricsInput" rows="10" placeholder="[00:12.50] First line of the song
+[00:16.30] Second line of the song
+...
+
+or just plain lyrics, one line per row"></textarea>
+
+    <h2>3. Choose languages</h2>
+    <div class="lang-row">
+      <label class="field small">
+        <span>Original language</span>
+        <select id="sourceLang"></select>
+      </label>
+      <label class="field small">
+        <span>Translate to</span>
+        <select id="targetLang"></select>
+      </label>
+    </div>
+
+    <button id="startBtn" class="primary-btn">Sync &amp; Translate</button>
+    <p id="status" class="status"></p>
+  </section>
+
+  <section class="karaoke-panel">
+    <h2>Live Lyrics</h2>
+    <div id="lyricsDisplay" class="lyrics-display">
+      <p class="placeholder">Your synced, translated lyrics will appear here as the song plays.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <p>Translations powered by the free MyMemory API — for personal, non-commercial use. Long songs may take a moment to warm up the first time through.</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
